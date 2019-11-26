@@ -1,0 +1,66 @@
+{
+  "ego": {
+    "cameras": [
+      {
+        "location": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 200.0
+        },
+        "rotation": {
+          "pitch": -15.0,
+          "yaw": 0.0,
+          "roll": 0.0
+        },
+        "fov": 90,
+        "default": true,
+        "name": "eagle"
+      },
+      {
+        "location": {
+          "x": 0.0,
+          "y": -40.0,
+          "z": 120.0
+        },
+        "rotation": {
+          "pitch": 0.0,
+          "yaw": 0.0,
+          "roll": 0.0
+        },
+        "fov": 90,
+        "default": false,
+        "name": "cockpit"
+      },
+      {
+        "location": {
+          "x": 64.0,
+          "y": -88.0,
+          "z": 105.0
+        },
+        "rotation": {
+          "pitch": -2.0,
+          "yaw": -170.0,
+          "roll": 0.0
+        },
+        "fov": 25,
+        "default": false,
+        "name": "driver side-view mirror"
+      },
+      {
+        "location": {
+          "x": -280.0,
+          "y": 0.0,
+          "z": 50.0
+        },
+        "rotation": {
+          "pitch": -5.0,
+          "yaw": 180.0,
+          "roll": 0.0
+        },
+        "fov": 60,
+        "default": false,
+        "name": "rear bumper"
+      }
+    ]
+  }
+}
