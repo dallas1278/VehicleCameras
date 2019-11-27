@@ -74,7 +74,8 @@ AVehicleCamerasPawn::AVehicleCamerasPawn()
 
 	// Create camera component 
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera0"));
-	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
+	//Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
+	Camera->SetupAttachment(RootComponent);
 	Camera->bUsePawnControlRotation = false;
 	Camera->FieldOfView = 90.f;
 
@@ -88,7 +89,7 @@ AVehicleCamerasPawn::AVehicleCamerasPawn()
 	InternalCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("InternalCamera"));
 	InternalCamera->bUsePawnControlRotation = false;
 	InternalCamera->FieldOfView = 90.f;
-	InternalCamera->SetupAttachment(InternalCameraBase);
+	InternalCamera->SetupAttachment(RootComponent);
 
 	//Setup TextRenderMaterial
 	static ConstructorHelpers::FObjectFinder<UMaterial> TextMaterial(TEXT("Material'/Engine/EngineMaterials/AntiAliasedTextMaterialTranslucent.AntiAliasedTextMaterialTranslucent'"));
@@ -120,6 +121,61 @@ AVehicleCamerasPawn::AVehicleCamerasPawn()
 	GearDisplayColor = FColor(255, 255, 255, 255);
 
 	bInReverseGear = false;
+
+	//Read JSON data
+	const FString JsonFilePath = FPaths::ProjectContentDir() + "/Vehicle/Sedan/configuration.json";
+	FString JsonString; //Json converted to FString
+
+	FFileHelper::LoadFileToString(JsonString, *JsonFilePath);
+
+	//Create a json object to store the information from the json string
+	//The json reader is used to deserialize the json object later on
+	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject());
+	TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(JsonString);
+
+	if (FJsonSerializer::Deserialize(JsonReader, JsonObject) && JsonObject.IsValid())
+	{
+		//The person "object" that is retrieved from the given json file
+		TSharedPtr<FJsonObject> PersonObject = JsonObject->GetObjectField("ego");
+		//Retrieving an array property and printing each field
+		TArray<TSharedPtr<FJsonValue>> objArray = PersonObject->GetArrayField("cameras");
+		for (int32 i = 0; i < objArray.Num(); i++)
+		{
+			TSharedPtr<FJsonValue> value = objArray[i];
+			TSharedPtr<FJsonObject> json = value->AsObject();
+
+			TSharedPtr<FJsonObject> location = json->GetObjectField("location");
+			float x = location->GetNumberField("x");
+			float y = location->GetNumberField("y");
+			float z = location->GetNumberField("z");
+
+			TSharedPtr<FJsonObject> rotation = json->GetObjectField("rotation");
+			float camYaw = rotation->GetNumberField("yaw");
+			float camPitch = rotation->GetNumberField("pitch");
+			float camRoll = rotation->GetNumberField("roll");
+
+			float fov = json->GetNumberField("fov");
+			bool default = json->GetBoolField("default");
+			FString name = json->GetStringField("name");
+
+			UCameraComponent* newCamera = CreateDefaultSubobject<UCameraComponent>(FName(*name));
+			newCamera->SetupAttachment(RootComponent);
+			newCamera->RelativeLocation = FVector(x, y, z);
+			newCamera->RelativeRotation = FRotator(camPitch, camYaw, camRoll);
+			newCamera->FieldOfView = fov;
+
+			CameraArray.Add(newCamera);
+
+			if (default)
+			{
+				iCameraArrayIdx = i;
+				Camera->SetRelativeLocationAndRotation(newCamera->GetRelativeTransform().GetLocation(), newCamera->GetRelativeTransform().GetRotation());
+				Camera->SetFieldOfView(newCamera->FieldOfView);
+				InternalCamera->SetRelativeLocationAndRotation(newCamera->GetRelativeTransform().GetLocation(), newCamera->GetRelativeTransform().GetRotation());
+				InternalCamera->SetFieldOfView(newCamera->FieldOfView);
+			}
+		}
+	}
 }
 
 void AVehicleCamerasPawn::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
@@ -163,7 +219,16 @@ void AVehicleCamerasPawn::OnHandbrakeReleased()
 
 void AVehicleCamerasPawn::OnToggleCamera()
 {
-	EnableIncarView(!bInCarCameraActive);
+	//EnableIncarView(!bInCarCameraActive);
+	++iCameraArrayIdx;
+
+	if (iCameraArrayIdx > CameraArray.Num() - 1)
+		iCameraArrayIdx = 0;
+
+	Camera->SetRelativeLocationAndRotation(CameraArray[iCameraArrayIdx]->GetRelativeTransform().GetLocation(), CameraArray[iCameraArrayIdx]->GetRelativeTransform().GetRotation());
+	Camera->SetFieldOfView(CameraArray[iCameraArrayIdx]->FieldOfView);
+	InternalCamera->SetRelativeLocationAndRotation(CameraArray[iCameraArrayIdx]->GetRelativeTransform().GetLocation(), CameraArray[iCameraArrayIdx]->GetRelativeTransform().GetRotation());
+	InternalCamera->SetFieldOfView(CameraArray[iCameraArrayIdx]->FieldOfView);
 }
 
 void AVehicleCamerasPawn::EnableIncarView(const bool bState, const bool bForce)
@@ -284,4 +349,10 @@ void AVehicleCamerasPawn::SetupInCarHUD()
 	}
 }
 
+void AVehicleCamerasPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	CameraArray.Empty();
+
+	Super::EndPlay(EndPlayReason);
+}
 #undef LOCTEXT_NAMESPACE
